@@ -1,5 +1,5 @@
-Vault Midnight Dark — tema approvato.
-Modificati: CSS, colori di tema, controllo aggiornamenti quando app bloccata e al ritorno in primo piano, versione cache SW.
-NON modificati: formato archivio, cifratura, backup, logica di salvataggio.
-ATTENZIONE: la versione già installata può restare bloccata sulla cache precedente. Nessuna garanzia di aggiornamento remoto. Non cancellare i dati.
-Versione sperimentale: non usare password reali.
+Vault Midnight Dark — correzione icone offline
+
+Le icone dei servizi sono incorporate in app.js, evitando dipendenze da richieste a file SVG che possono essere servite dalla cache. Aggiunto fallback alla iniziale in caso di errore. Aggiornato identificativo cache. Nessuna modifica a cifratura, dati e backup.
+
+Prima di aggiornare, conserva un backup. Non cancellare i dati della PWA. Testare prima con credenziali fittizie.
