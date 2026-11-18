@@ -20,3 +20,11 @@ Con Python installato: `python -m http.server 8000` nella cartella, quindi aprir
 - Importazione con verifica della password del backup e conferma esplicita prima di sostituire i dati.
 - Nessuna credenziale in chiaro nei file di backup.
 - ATTENZIONE: non ancora sottoposta a revisione di sicurezza.
+
+
+## Aggiornamento v0.3
+Aggiunti categorie, preferiti, filtri, controllo locale password duplicate e generatore configurabile. Il formato dell'archivio `vault.pwa.v1` e la cifratura AES-GCM/PBKDF2 rimangono invariati per compatibilità con v0.2. Blocco automatico dopo 120 secondi di inattività o quando la pagina diventa nascosta: già presente in v0.2.
+
+**Prima dell'aggiornamento:** esportare un backup cifrato e verificarne la presenza. Sostituire i file alla radice del repository GitHub (non caricare la cartella esterna). Su iPhone chiudere e riaprire la PWA dopo il deploy; il service worker potrebbe richiedere un secondo avvio per attivare la nuova versione. Non cancellare i dati del sito e non disinstallare l'app.
+
+**Limiti:** non è stata effettuata una revisione crittografica indipendente, non usare password reali. I dati possono andare persi se Safari elimina lo storage del sito. Il controllo duplicati avviene solo dopo lo sblocco, in memoria.
