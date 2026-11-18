@@ -2,7 +2,7 @@
 let vaultRegistration=null, pendingUpdate=false;
 const STORE='vault.pwa.v1';const $=id=>document.getElementById(id);const encoder=new TextEncoder();const decoder=new TextDecoder();let entries=[],key=null,salt=null,editing=null,locked=true,lockTimer=null,clipboardTimer=null,clipboardValue=null,sessionEpoch=0,saving=false,unlocking=false,settingUp=false,importing=false,verifying=false;
 const b64=bytes=>btoa(String.fromCharCode(...bytes));const un64=str=>Uint8Array.from(atob(str),c=>c.charCodeAt(0));const random=n=>crypto.getRandomValues(new Uint8Array(n));
-function screen(name){for(const id of ['setup','unlock','vault','editor'])$(id).hidden=id!==name;$('lock').hidden=name==='setup'||name==='unlock';refreshUpdateNotice()}
+function screen(name){for(const id of ['setup','unlock','vault','editor'])$(id).hidden=id!==name;$('lock').hidden=name==='setup'||name==='unlock';$('updateCheck').hidden=!locked;refreshUpdateNotice()}
 function message(s){$('status').textContent=s;setTimeout(()=>{if($('status').textContent===s)$('status').textContent=''},4500)}
 async function derive(password,s){const base=await crypto.subtle.importKey('raw',encoder.encode(password),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt:s,iterations:600000,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
 async function seal(data,k,s){const iv=random(12);const encrypted=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:encoder.encode('Vault-PWA-v1')},k,encoder.encode(JSON.stringify(data)));return JSON.stringify({version:1,kdf:'PBKDF2-SHA256',iterations:600000,salt:b64(s),iv:b64(iv),ciphertext:b64(new Uint8Array(encrypted))})}
@@ -162,8 +162,9 @@ async function initializeUpdates(){
    if(!locked){pendingUpdate=false;refreshUpdateNotice();return}
    location.reload();
   });
-  // Check for updates on startup only. Never activate a worker silently.
-  registration.update().catch(()=>{});
+  // Check at startup and on return to foreground; never auto-activate a waiting worker.
+  registration.update().then(check).catch(()=>{});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)registration.update().then(check).catch(()=>{})});
  }catch{ /* Vault remains usable offline with its existing code. */ }
 }
 $('applyUpdate').addEventListener('click',()=>{
@@ -173,4 +174,12 @@ $('applyUpdate').addEventListener('click',()=>{
  worker.postMessage({type:'VAULT_APPLY_UPDATE'});
  $('applyUpdate').disabled=true;
  $('applyUpdate').textContent='Aggiornamento in corso…';
+});
+
+// User-initiated update check, available only when locked. No storage changes.
+$('checkUpdate').addEventListener('click',async()=>{
+ if(!locked)return;
+ if(!vaultRegistration)return message('Aggiornamenti non disponibili in questo browser.');
+ try{await vaultRegistration.update();pendingUpdate=!!(vaultRegistration.waiting&&navigator.serviceWorker.controller);refreshUpdateNotice();message(pendingUpdate?'Aggiornamento disponibile.':'Nessun aggiornamento pronto.')}
+ catch{message('Controllo non riuscito: verifica la connessione.')}
 });

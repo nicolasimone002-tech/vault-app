@@ -1,3 +1,5 @@
-Vault Midnight Blue — restyling sperimentale basato sul pacchetto v0.13.1 fornito dall’utente.
-Solo UI: palette blu notte, micro-animazioni CSS, loghi locali stilizzati per 17 servizi. Nessuna richiesta esterna per icone. Formato archivio e backup invariati.
-I simboli sono rappresentazioni semplificate, non loghi ufficiali. Test su iPhone ancora necessari.
+Vault Midnight Dark — tema approvato.
+Modificati: CSS, colori di tema, controllo aggiornamenti quando app bloccata e al ritorno in primo piano, versione cache SW.
+NON modificati: formato archivio, cifratura, backup, logica di salvataggio.
+ATTENZIONE: la versione già installata può restare bloccata sulla cache precedente. Nessuna garanzia di aggiornamento remoto. Non cancellare i dati.
+Versione sperimentale: non usare password reali.
