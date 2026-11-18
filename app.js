@@ -1,0 +1,44 @@
+'use strict';
+const STORE='vault.pwa.v1';const $=id=>document.getElementById(id);const encoder=new TextEncoder();const decoder=new TextDecoder();let entries=[],key=null,salt=null,editing=null,locked=true,lockTimer=null;
+const b64=bytes=>btoa(String.fromCharCode(...bytes));const un64=str=>Uint8Array.from(atob(str),c=>c.charCodeAt(0));const random=n=>crypto.getRandomValues(new Uint8Array(n));
+function screen(name){for(const id of ['setup','unlock','vault','editor'])$(id).hidden=id!==name;$('lock').hidden=name==='setup'||name==='unlock'}
+function message(s){$('status').textContent=s;setTimeout(()=>{if($('status').textContent===s)$('status').textContent=''},4500)}
+async function derive(password,s){const base=await crypto.subtle.importKey('raw',encoder.encode(password),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt:s,iterations:600000,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
+async function seal(data,k,s){const iv=random(12);const encrypted=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:encoder.encode('Vault-PWA-v1')},k,encoder.encode(JSON.stringify(data)));return JSON.stringify({version:1,kdf:'PBKDF2-SHA256',iterations:600000,salt:b64(s),iv:b64(iv),ciphertext:b64(new Uint8Array(encrypted))})}
+async function openVault(raw,password){const blob=JSON.parse(raw);if(blob.version!==1||blob.kdf!=='PBKDF2-SHA256'||blob.iterations!==600000)throw Error('Formato non supportato');const s=un64(blob.salt);const k=await derive(password,s);const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:un64(blob.iv),additionalData:encoder.encode('Vault-PWA-v1')},k,un64(blob.ciphertext));const data=JSON.parse(decoder.decode(plain));if(!Array.isArray(data))throw Error('Archivio non valido');return {data,k,s}}
+async function save(){if(!key||!salt)throw Error('Archivio bloccato');localStorage.setItem(STORE,await seal(entries,key,salt))}
+function lock(){entries=[];key=null;salt=null;editing=null;locked=true;$('master').value='';$('password').value='';clearTimeout(lockTimer);screen(localStorage.getItem(STORE)?'unlock':'setup')}
+function resetIdle(){if(locked)return;clearTimeout(lockTimer);lockTimer=setTimeout(lock,120000)}
+function render(){const q=$('search').value.toLocaleLowerCase();const filtered=entries.filter(e=>(e.service+' '+e.username).toLocaleLowerCase().includes(q));$('count').textContent=`${entries.length} credenzial${entries.length===1?'e':'i'} salvate`;const root=$('items');root.replaceChildren();if(!filtered.length){const p=document.createElement('p');p.textContent=entries.length?'Nessun risultato.':'Non hai ancora aggiunto credenziali.';root.append(p)}for(const e of filtered){const btn=document.createElement('button');btn.className='item';const left=document.createElement('span');const name=document.createElement('strong');name.textContent=e.service;const sub=document.createElement('small');sub.textContent=e.username||'Nessun nome utente';left.append(name,sub);const arrow=document.createElement('span');arrow.className='chevron';arrow.textContent='›';btn.append(left,arrow);btn.addEventListener('click',()=>edit(e.id));root.append(btn)}}
+function edit(id=null){editing=id;const e=entries.find(x=>x.id===id)||{};$('editorTitle').textContent=id?'Modifica credenziale':'Nuova credenziale';for(const field of ['service','username','password','website','notes'])$(field).value=e[field]||'';$('password').type='password';$('showPassword').textContent='Mostra';$('delete').hidden=!id;screen('editor')}
+$('setupForm').addEventListener('submit',async e=>{e.preventDefault();const a=$('newMaster').value,b=$('confirmMaster').value;if(a.length<12||a!==b){message('Usa almeno 12 caratteri e verifica la conferma.');return}try{salt=random(16);key=await derive(a,salt);entries=[];await save();locked=false;$('newMaster').value=$('confirmMaster').value='';screen('vault');render();resetIdle()}catch{message('Impossibile creare l’archivio.')}});
+$('unlockForm').addEventListener('submit',async e=>{e.preventDefault();try{const result=await openVault(localStorage.getItem(STORE),$('master').value);entries=result.data;key=result.k;salt=result.s;locked=false;$('master').value='';screen('vault');render();resetIdle()}catch{message('Password errata o archivio danneggiato.')}});
+$('entryForm').addEventListener('submit',async e=>{e.preventDefault();if(locked)return;const data={};for(const f of ['service','username','password','website','notes'])data[f]=$(f).value.trim();if(!data.service||!data.password)return message('Inserisci servizio e password.');const old=entries.slice();if(editing){const idx=entries.findIndex(x=>x.id===editing);if(idx<0)return;entries[idx]={...entries[idx],...data}}else entries.push({id:crypto.randomUUID(),...data});try{await save();screen('vault');render();resetIdle()}catch{entries=old;message('Salvataggio non riuscito.')}});
+$('delete').addEventListener('click',async()=>{if(!editing||!confirm('Eliminare definitivamente questa credenziale?'))return;const old=entries;entries=entries.filter(x=>x.id!==editing);try{await save();screen('vault');render()}catch{entries=old;message('Eliminazione non riuscita.')}});
+$('generate').addEventListener('click',()=>{const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*-_';let result='';const limit=Math.floor(256/alphabet.length)*alphabet.length;while(result.length<24){for(const b of random(32)){if(b<limit&&result.length<24)result+=alphabet[b%alphabet.length]}}$('password').value=result;$('password').type='text';$('showPassword').textContent='Nascondi'});
+$('showPassword').addEventListener('click',()=>{const visible=$('password').type==='text';$('password').type=visible?'password':'text';$('showPassword').textContent=visible?'Mostra':'Nascondi'});
+$('add').addEventListener('click',()=>edit());$('cancel').addEventListener('click',()=>{screen('vault');render()});$('lock').addEventListener('click',lock);$('search').addEventListener('input',render);document.addEventListener('pointerdown',resetIdle);document.addEventListener('keydown',resetIdle);document.addEventListener('visibilitychange',()=>{if(document.hidden&&!locked)lock()});window.addEventListener('pagehide',()=>{if(!locked)lock()});
+if(!window.isSecureContext||!crypto.subtle){document.body.textContent='Vault richiede HTTPS o localhost per funzionare in sicurezza.'}else{screen(localStorage.getItem(STORE)?'unlock':'setup');if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{})}
+
+// Backup: esporta soltanto il blob già cifrato, mai le credenziali in chiaro.
+$('exportBackup').addEventListener('click',()=>{
+ if(locked)return;const raw=localStorage.getItem(STORE);if(!raw)return message('Archivio non disponibile.');
+ const blob=new Blob([raw],{type:'application/json'});const url=URL.createObjectURL(blob);
+ const a=document.createElement('a');a.href=url;a.download='vault-backup-'+new Date().toISOString().slice(0,10)+'.json';
+ document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+ message('Backup cifrato esportato. Conservalo in un luogo sicuro.');
+});
+$('importBackup').addEventListener('click',()=>{if(!locked)$('backupFile').click()});
+$('backupFile').addEventListener('change',async e=>{
+ const file=e.target.files?.[0];e.target.value='';if(!file)return;
+ if(file.size>5_000_000)return message('Backup troppo grande (massimo 5 MB).');
+ try{const raw=await file.text();const blob=JSON.parse(raw);
+ if(blob.version!==1||blob.kdf!=='PBKDF2-SHA256'||blob.iterations!==600000||!['salt','iv','ciphertext'].every(k=>typeof blob[k]==='string'))throw Error('Formato');
+ const password=prompt('Password principale del backup da importare:');if(password===null)return;
+ const restored=await openVault(raw,password);
+ if(!confirm('Importare il backup? Le credenziali attuali saranno SOSTITUITE.'))return;
+ const old=localStorage.getItem(STORE);
+ try{localStorage.setItem(STORE,raw)}catch(err){if(old!==null)localStorage.setItem(STORE,old);throw err}
+ entries=restored.data;key=restored.k;salt=restored.s;render();resetIdle();message('Backup importato.');
+ }catch{message('Importazione non riuscita: file o password non validi.')}
+});
