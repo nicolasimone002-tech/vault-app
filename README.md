@@ -85,3 +85,12 @@ Esportare e verificare prima un backup, poi caricare i file estratti alla radice
 
 ## v0.9.1 — inserimento esplicito di spazi ai bordi
 Aggiunti due pulsanti per inserire spazi iniziali e finali nel campo password, con contatore degli spazi visibile. Il codice di cifratura, il formato dei backup e la chiave di archiviazione restano invariati. Questa modifica aggira eventuali problemi di digitazione sul dispositivo ma non dimostra la causa originaria. Testare solo con credenziali fittizie.
+
+
+## Vault v0.10 — ripristino più prudente
+- Prima di importare mostra il numero di credenziali attuali e quelle presenti nel backup verificato.
+- Per sovrascrivere l'archivio occorre digitare esattamente `IMPORTA`. Annullando non si modifica nulla.
+- Evita modifiche e backup export durante una verifica in corso.
+- Controlla che la sessione sia ancora valida dopo la lettura del file e prima di chiedere la password del backup.
+- Nessun cambiamento a cifratura, salt, KDF o formato dati.
+- Limiti: nessuna garanzia contro aggiornamenti malevoli della stessa origine GitHub Pages; test statici non equivalgono a un audit indipendente. Usare solo credenziali fittizie.

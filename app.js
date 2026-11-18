@@ -45,8 +45,8 @@ function render(){const q=$('search').value.toLocaleLowerCase();const filtered=e
 function edit(id=null){editing=id;const e=entries.find(x=>x.id===id)||{};$('editorTitle').textContent=id?'Modifica credenziale':'Nuova credenziale';for(const field of ['service','username','password','website','notes'])$(field).value=e[field]||'';$('password').type='password';$('showPassword').textContent='Mostra';$('category').value=e.category||'Personale';$('favorite').checked=!!e.favorite;$('delete').hidden=!id;updateStrength();updateSpaceInfo();screen('editor')}
 $('setupForm').addEventListener('submit',async e=>{e.preventDefault();if(saving||settingUp)return;settingUp=true;const a=$('newMaster').value,b=$('confirmMaster').value;if(a.length<12||a!==b){settingUp=false;message('Usa almeno 12 caratteri e verifica la conferma.');return}try{const epoch=sessionEpoch;const nextSalt=random(16);const nextKey=await derive(a,nextSalt);if(epoch!==sessionEpoch||localStorage.getItem(STORE))return;salt=nextSalt;key=nextKey;entries=[];await save(true);locked=false;$('newMaster').value=$('confirmMaster').value='';screen('vault');render();resetIdle()}catch{message('Impossibile creare l’archivio.')}finally{settingUp=false}});
 $('unlockForm').addEventListener('submit',async e=>{e.preventDefault();if(unlocking||!locked)return;unlocking=true;const epoch=sessionEpoch;const password=$('master').value;try{const result=await openVault(localStorage.getItem(STORE),password);if(epoch!==sessionEpoch||!locked)return;entries=result.data;key=result.k;salt=result.s;locked=false;$('master').value='';screen('vault');render();resetIdle()}catch{if(epoch===sessionEpoch)message('Password errata o archivio danneggiato.')}finally{unlocking=false}});
-$('entryForm').addEventListener('submit',async e=>{e.preventDefault();if(locked||saving||importing)return;const data={};for(const f of ['service','username','password','website','notes'])data[f]=f==='password'?$(f).value:$(f).value.trim();data.category=$('category').value;data.favorite=$('favorite').checked;if(!data.service||!data.password)return message('Inserisci servizio e password.');const old=entries.slice();if(editing){const idx=entries.findIndex(x=>x.id===editing);if(idx<0)return;entries[idx]={...entries[idx],...data}}else entries.push({id:crypto.randomUUID(),...data});try{await save();if(locked)return;clearEditor();screen('vault');render();resetIdle()}catch{if(!locked)entries=old;message('Salvataggio non riuscito.')}});
-$('delete').addEventListener('click',async()=>{if(locked||saving||importing||!editing||!confirm('Eliminare definitivamente questa credenziale?'))return;const old=entries;entries=entries.filter(x=>x.id!==editing);try{await save();if(locked)return;screen('vault');render()}catch{if(!locked)entries=old;message('Eliminazione non riuscita.')}});
+$('entryForm').addEventListener('submit',async e=>{e.preventDefault();if(locked||saving||importing||verifying)return;const data={};for(const f of ['service','username','password','website','notes'])data[f]=f==='password'?$(f).value:$(f).value.trim();data.category=$('category').value;data.favorite=$('favorite').checked;if(!data.service||!data.password)return message('Inserisci servizio e password.');const old=entries.slice();if(editing){const idx=entries.findIndex(x=>x.id===editing);if(idx<0)return;entries[idx]={...entries[idx],...data}}else entries.push({id:crypto.randomUUID(),...data});try{await save();if(locked)return;clearEditor();screen('vault');render();resetIdle()}catch{if(!locked)entries=old;message('Salvataggio non riuscito.')}});
+$('delete').addEventListener('click',async()=>{if(locked||saving||importing||verifying||!editing||!confirm('Eliminare definitivamente questa credenziale?'))return;const old=entries;entries=entries.filter(x=>x.id!==editing);try{await save();if(locked)return;screen('vault');render()}catch{if(!locked)entries=old;message('Eliminazione non riuscita.')}});
 $('passwordLength').addEventListener('input',()=>{$('lengthLabel').textContent=$('passwordLength').value});
 $('generate').addEventListener('click',()=>{const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'+($('useSymbols').checked?'!@#$%^&*-_':'');let result='';const limit=Math.floor(256/alphabet.length)*alphabet.length;const length=Number($('passwordLength').value);while(result.length<length){for(const b of random(64)){if(b<limit&&result.length<length)result+=alphabet[b%alphabet.length]}}$('password').value=result;$('password').type='text';$('showPassword').textContent='Nascondi';updateStrength()});
 $('showPassword').addEventListener('click',()=>{const visible=$('password').type==='text';$('password').type=visible?'password':'text';$('showPassword').textContent=visible?'Mostra':'Nascondi'});
@@ -55,7 +55,7 @@ if(!window.isSecureContext||!crypto.subtle){document.body.textContent='Vault ric
 
 // Backup: esporta soltanto il blob già cifrato, mai le credenziali in chiaro.
 $('exportBackup').addEventListener('click',()=>{
- if(locked||saving||importing)return message('Attendi il completamento del salvataggio.');const raw=localStorage.getItem(STORE);if(!raw)return message('Archivio non disponibile.');
+ if(locked||saving||importing||verifying)return message('Attendi il completamento dell’operazione.');const raw=localStorage.getItem(STORE);if(!raw)return message('Archivio non disponibile.');
  const blob=new Blob([raw],{type:'application/json'});const url=URL.createObjectURL(blob);
  const a=document.createElement('a');a.href=url;a.download='vault-backup-'+new Date().toISOString().slice(0,10)+'.json';
  document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
@@ -66,10 +66,14 @@ $('backupFile').addEventListener('change',async e=>{
  const file=e.target.files?.[0];e.target.value='';if(!file||locked||saving||importing||verifying)return;importing=true;const epoch=sessionEpoch;
  if(file.size>5_000_000){importing=false;return message('Backup troppo grande (massimo 5 MB).')}
  try{const raw=await file.text();validateBlob(JSON.parse(raw));
+ if(locked||epoch!==sessionEpoch)return;
  const password=prompt('Password principale del backup da importare:');if(password===null)return;
  const restored=await openVault(raw,password);
  if(locked||epoch!==sessionEpoch||saving)return;
- if(!confirm('Importare il backup? Le credenziali attuali saranno SOSTITUITE.'))return;
+ // Mostra solo il numero di voci: non esporre nomi o password nel dialogo.
+ const currentCount=entries.length, incomingCount=restored.data.length;
+ const confirmation=prompt(`ATTENZIONE: il ripristino SOSTITUIRÀ ${currentCount} credenziali attuali con ${incomingCount} credenziali del backup.\n\nPrima di continuare conserva una copia cifrata dell'archivio attuale.\n\nPer confermare digita IMPORTA (maiuscolo):`);
+ if(confirmation!=='IMPORTA'){message('Importazione annullata. Archivio attuale invariato.');return}
  if(locked||epoch!==sessionEpoch||saving)return;
  const old=localStorage.getItem(STORE);
  if(locked||epoch!==sessionEpoch||saving)return;

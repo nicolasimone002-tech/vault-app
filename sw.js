@@ -1,5 +1,5 @@
 'use strict';
-const CACHE='vault-pwa-v091';
+const CACHE='vault-pwa-v010';
 const ASSETS=['./','./index.html','./style.css','./app.js','./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png'];
 const ALLOWED=new Set(ASSETS.map(path=>new URL(path,self.registration.scope).href));
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting())));
