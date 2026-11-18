@@ -54,3 +54,25 @@ p,.item small,.intro p{color:#9AABBA!important}
 @media(hover:hover){.item:hover{border-color:#426F89!important;background:#152436!important}button.primary:hover{box-shadow:none!important}}
 
 .update-check{margin-top:18px;text-align:center}.update-check button{font-size:12px;padding:9px 13px;background:#162637!important;color:#A9BCCB!important;border:1px solid #263B4F}
+
+/* Midnight Dark: compact backup controls and top settings navigation. */
+.header-actions{display:flex;align-items:center;gap:8px}
+.icon-button{display:grid;place-items:center;width:40px;height:40px;padding:0;border:1px solid #263B4F;background:#142233;color:#A5BDCD;border-radius:12px}
+.icon-button:active{background:#22374B}
+.settings-panel{margin-top:12px!important;padding:20px!important}
+.settings-top{margin-bottom:12px}
+.settings-back{background:transparent;color:#A5BDCD;padding:8px 2px;font-size:13px}
+.settings-panel h1{margin:4px 0 8px}
+.settings-group{margin-top:24px;padding:16px;border:1px solid #243346;border-radius:16px;background:#0B1420}
+.settings-group h2{margin:0;font-size:14px;color:#D9E5ED;letter-spacing:.1px}
+.settings-group .backup-actions{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin:14px 0 0}
+.settings-group .backup-actions button{min-height:0!important;min-width:0!important;width:100%;flex:none;text-align:left;padding:10px 12px;font-size:12px;font-weight:550;line-height:1.35;border:1px solid #263B4F;border-radius:10px;background:#162638!important;color:#B7C8D5!important;box-shadow:none!important}
+.settings-group .backup-actions button:active{background:#21374A!important}
+.settings-group #verifyResult{margin-top:12px}
+.settings-note{font-size:12px;color:#94A7B7}
+#settings:not([hidden]){animation:pageEnter .23s ease-out both}
+@media(prefers-reduced-motion:reduce){#settings:not([hidden]){animation:none}}
+
+/* Final settings update controls and restrained V identity */
+.settings-update-button{display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:13px;padding:11px 12px;min-height:0;background:#162638!important;border:1px solid #263B4F;border-radius:10px;color:#D9E5ED!important;font-size:13px;text-align:left;box-shadow:none!important}
+.settings-version{display:flex;justify-content:space-between;gap:12px;margin-top:16px;font-size:12px;color:#94A7B7}.settings-version strong{font-weight:600;color:#D9E5ED}.settings-hint{font-size:11px;margin:12px 0 0;color:#8C9EAD}.logo{font-weight:800;letter-spacing:-.05em}

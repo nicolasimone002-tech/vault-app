@@ -1,5 +1,4 @@
-Vault Midnight Dark — correzione icone offline
-
-Le icone dei servizi sono incorporate in app.js, evitando dipendenze da richieste a file SVG che possono essere servite dalla cache. Aggiunto fallback alla iniziale in caso di errore. Aggiornato identificativo cache. Nessuna modifica a cifratura, dati e backup.
-
-Prima di aggiornare, conserva un backup. Non cancellare i dati della PWA. Testare prima con credenziali fittizie.
+Vault Midnight Dark - aggiornamento grafico finale
+Icona V blu acciaio; menu Impostazioni con backup compatti, controllo aggiornamenti e versione installata.
+Il controllo da Impostazioni blocca prima la sessione. Cifratura e formato archivio non modificati.
+Test iPhone non eseguito. Usare solo credenziali fittizie.

@@ -2,7 +2,7 @@
 let vaultRegistration=null, pendingUpdate=false;
 const STORE='vault.pwa.v1';const $=id=>document.getElementById(id);const encoder=new TextEncoder();const decoder=new TextDecoder();let entries=[],key=null,salt=null,editing=null,locked=true,lockTimer=null,clipboardTimer=null,clipboardValue=null,sessionEpoch=0,saving=false,unlocking=false,settingUp=false,importing=false,verifying=false;
 const b64=bytes=>btoa(String.fromCharCode(...bytes));const un64=str=>Uint8Array.from(atob(str),c=>c.charCodeAt(0));const random=n=>crypto.getRandomValues(new Uint8Array(n));
-function screen(name){for(const id of ['setup','unlock','vault','editor'])$(id).hidden=id!==name;$('lock').hidden=name==='setup'||name==='unlock';$('updateCheck').hidden=!locked;refreshUpdateNotice()}
+function screen(name){for(const id of ['setup','unlock','vault','editor','settings'])$(id).hidden=id!==name;$('lock').hidden=name==='setup'||name==='unlock';$('openSettings').hidden=locked||name==='setup'||name==='unlock';$('openSettings').setAttribute('aria-expanded',String(name==='settings'));$('updateCheck').hidden=!locked;refreshUpdateNotice()}
 function message(s){$('status').textContent=s;setTimeout(()=>{if($('status').textContent===s)$('status').textContent=''},4500)}
 async function derive(password,s){const base=await crypto.subtle.importKey('raw',encoder.encode(password),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt:s,iterations:600000,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
 async function seal(data,k,s){const iv=random(12);const encrypted=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:encoder.encode('Vault-PWA-v1')},k,encoder.encode(JSON.stringify(data)));return JSON.stringify({version:1,kdf:'PBKDF2-SHA256',iterations:600000,salt:b64(s),iv:b64(iv),ciphertext:b64(new Uint8Array(encrypted))})}
@@ -74,7 +74,7 @@ $('delete').addEventListener('click',async()=>{if(locked||saving||importing||ver
 $('passwordLength').addEventListener('input',()=>{$('lengthLabel').textContent=$('passwordLength').value});
 $('generate').addEventListener('click',()=>{const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'+($('useSymbols').checked?'!@#$%^&*-_':'');let result='';const limit=Math.floor(256/alphabet.length)*alphabet.length;const length=Number($('passwordLength').value);while(result.length<length){for(const b of random(64)){if(b<limit&&result.length<length)result+=alphabet[b%alphabet.length]}}$('password').value=result;$('password').type='text';$('showPassword').textContent='Nascondi';updateStrength()});
 $('showPassword').addEventListener('click',()=>{const visible=$('password').type==='text';$('password').type=visible?'password':'text';$('showPassword').textContent=visible?'Mostra':'Nascondi'});
-$('add').addEventListener('click',()=>edit());$('cancel').addEventListener('click',()=>{clearEditor();screen('vault');render()});$('lock').addEventListener('click',lock);$('search').addEventListener('input',render);$('categoryFilter').addEventListener('change',render);$('favoritesOnly').addEventListener('change',render);document.addEventListener('pointerdown',resetIdle);document.addEventListener('keydown',resetIdle);document.addEventListener('visibilitychange',()=>{if(document.hidden&&!locked)lock()});window.addEventListener('pagehide',()=>{if(!locked)lock()});
+$('openSettings').addEventListener('click',()=>{if(!locked){screen('settings');resetIdle()}});$('closeSettings').addEventListener('click',()=>{if(!locked){screen('vault');render();resetIdle()}});$('add').addEventListener('click',()=>edit());$('cancel').addEventListener('click',()=>{clearEditor();screen('vault');render()});$('lock').addEventListener('click',lock);$('search').addEventListener('input',render);$('categoryFilter').addEventListener('change',render);$('favoritesOnly').addEventListener('change',render);document.addEventListener('pointerdown',resetIdle);document.addEventListener('keydown',resetIdle);document.addEventListener('visibilitychange',()=>{if(document.hidden&&!locked)lock()});window.addEventListener('pagehide',()=>{if(!locked)lock()});
 if(!window.isSecureContext||!crypto.subtle){document.body.textContent='Vault richiede HTTPS o localhost per funzionare in sicurezza.'}else{screen(localStorage.getItem(STORE)?'unlock':'setup');if('serviceWorker'in navigator)initializeUpdates()}
 
 // Backup: esporta soltanto il blob già cifrato, mai le credenziali in chiaro.
@@ -188,4 +188,10 @@ $('checkUpdate').addEventListener('click',async()=>{
  if(!vaultRegistration)return message('Aggiornamenti non disponibili in questo browser.');
  try{await vaultRegistration.update();pendingUpdate=!!(vaultRegistration.waiting&&navigator.serviceWorker.controller);refreshUpdateNotice();message(pendingUpdate?'Aggiornamento disponibile.':'Nessun aggiornamento pronto.')}
  catch{message('Controllo non riuscito: verifica la connessione.')}
+});
+
+// Settings shortcut: lock before checking for updates to avoid disrupting an unlocked session.
+$('settingsCheckUpdate').addEventListener('click',()=>{
+ if(!locked)lock();
+ if(locked)$('checkUpdate').click();
 });
