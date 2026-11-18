@@ -73,3 +73,11 @@ Esportare e verificare prima un backup, poi caricare i file estratti alla radice
 - Formato cifrato e chiave localStorage invariati.
 - IMPORTANTE: nessuna protezione JavaScript servita dallo stesso host può impedire che un aggiornamento malevolo dell'host sottragga credenziali. Non usare password reali senza audit indipendente e distribuzione affidabile.
 - Il test di ripristino completo deve avvenire in un profilo o dispositivo separato, non sopra l'archivio principale.
+
+
+## v0.9 — Correzioni mirate
+- Password conservate esattamente come digitate, inclusi spazi iniziali e finali.
+- Verifica e importazione backup non possono avviarsi contemporaneamente.
+- Creazione iniziale ricontrolla che non esista già un archivio.
+- Cache PWA aggiornata.
+- Formato cifrato invariato. Resta il rischio di compromissione degli aggiornamenti su GitHub Pages; solo dati di prova.
