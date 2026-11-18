@@ -54,3 +54,13 @@ Prima dell'aggiornamento salvare un backup. Sostituire tutti i file nella radice
 
 ### Aggiornamento sicuro
 Esportare e verificare prima un backup, poi caricare i file estratti alla radice di GitHub. Non cancellare l'app né i dati Safari. Dopo la pubblicazione chiudere e riaprire la PWA; può essere necessario un secondo avvio per aggiornare la cache. Verificare l'accesso e le credenziali fittizie.
+
+
+## v0.7 — validazione e hardening (prototipo)
+- Il formato cifrato v1 e la chiave localStorage restano invariati.
+- Verifica preventiva delle dimensioni e della codifica dei campi crittografici prima di derivare la chiave; verifica della struttura di ogni credenziale dopo la decifratura.
+- Impediti tentativi di sblocco concorrenti sulla stessa schermata.
+- Aggiunta Content Security Policy via meta tag, con risorse solo dalla stessa origine e nessuno script inline. Su GitHub Pages questo non sostituisce header HTTP di sicurezza e non protegge da codice malevolo distribuito dalla stessa origine.
+- Cache service worker v7.
+- Verificare con credenziali fittizie: accesso, creazione, modifica, backup, blocco e riapertura. NON importare un backup nell'archivio principale solo per provarlo: usare Verifica backup.
+- Limiti: nessun audit indipendente o test completo su iOS; non usare password reali. L'host resta un punto di fiducia critico.
