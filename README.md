@@ -64,3 +64,12 @@ Esportare e verificare prima un backup, poi caricare i file estratti alla radice
 - Cache service worker v7.
 - Verificare con credenziali fittizie: accesso, creazione, modifica, backup, blocco e riapertura. NON importare un backup nell'archivio principale solo per provarlo: usare Verifica backup.
 - Limiti: nessun audit indipendente o test completo su iOS; non usare password reali. L'host resta un punto di fiducia critico.
+
+
+## v0.8 — hardening operativo
+- Evita creazioni simultanee dell'archivio.
+- Durante l'importazione impedisce modifiche, eliminazioni, esportazioni e salvataggi concorrenti.
+- Il service worker gestisce solo gli asset esplicitamente elencati e rimuove solo cache Vault obsolete.
+- Formato cifrato e chiave localStorage invariati.
+- IMPORTANTE: nessuna protezione JavaScript servita dallo stesso host può impedire che un aggiornamento malevolo dell'host sottragga credenziali. Non usare password reali senza audit indipendente e distribuzione affidabile.
+- Il test di ripristino completo deve avvenire in un profilo o dispositivo separato, non sopra l'archivio principale.

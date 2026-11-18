@@ -1,5 +1,5 @@
 'use strict';
-const STORE='vault.pwa.v1';const $=id=>document.getElementById(id);const encoder=new TextEncoder();const decoder=new TextDecoder();let entries=[],key=null,salt=null,editing=null,locked=true,lockTimer=null,clipboardTimer=null,clipboardValue=null,sessionEpoch=0,saving=false,unlocking=false;
+const STORE='vault.pwa.v1';const $=id=>document.getElementById(id);const encoder=new TextEncoder();const decoder=new TextDecoder();let entries=[],key=null,salt=null,editing=null,locked=true,lockTimer=null,clipboardTimer=null,clipboardValue=null,sessionEpoch=0,saving=false,unlocking=false,settingUp=false,importing=false;
 const b64=bytes=>btoa(String.fromCharCode(...bytes));const un64=str=>Uint8Array.from(atob(str),c=>c.charCodeAt(0));const random=n=>crypto.getRandomValues(new Uint8Array(n));
 function screen(name){for(const id of ['setup','unlock','vault','editor'])$(id).hidden=id!==name;$('lock').hidden=name==='setup'||name==='unlock'}
 function message(s){$('status').textContent=s;setTimeout(()=>{if($('status').textContent===s)$('status').textContent=''},4500)}
@@ -27,7 +27,7 @@ function validateEntries(data){
 }
 async function openVault(raw,password){const blob=JSON.parse(raw);if(blob.version!==1||blob.kdf!=='PBKDF2-SHA256'||blob.iterations!==600000)throw Error('Formato non supportato');const {saltBytes:s,ivBytes,cipherBytes}=validateBlob(blob);const k=await derive(password,s);const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:ivBytes,additionalData:encoder.encode('Vault-PWA-v1')},k,cipherBytes);const data=validateEntries(JSON.parse(decoder.decode(plain)));return {data,k,s}}
 async function save(allowSetup=false){
- if(saving)throw Error('Salvataggio già in corso');
+ if(saving||importing)throw Error('Operazione già in corso');
  if(!key||!salt||(!allowSetup&&locked))throw Error('Archivio bloccato');
  saving=true;
  const epoch=sessionEpoch, snapshot=structuredClone(entries), activeKey=key, activeSalt=salt;
@@ -43,10 +43,10 @@ function lock(){sessionEpoch++;locked=true;clearTimeout(lockTimer);clearTimeout(
 function resetIdle(){if(locked)return;clearTimeout(lockTimer);lockTimer=setTimeout(lock,120000)}
 function render(){const q=$('search').value.toLocaleLowerCase();const filtered=entries.filter(e=>(e.service+' '+e.username).toLocaleLowerCase().includes(q)&&(!$('categoryFilter').value||(e.category||'Personale')===$('categoryFilter').value)&&(!$('favoritesOnly').checked||e.favorite));$('count').textContent=`${entries.length} credenzial${entries.length===1?'e':'i'} salvate`;const root=$('items');root.replaceChildren();if(!filtered.length){const p=document.createElement('p');p.textContent=entries.length?'Nessun risultato.':'Non hai ancora aggiunto credenziali.';root.append(p)}for(const e of filtered){const btn=document.createElement('button');btn.className='item';const left=document.createElement('span');const name=document.createElement('strong');name.textContent=e.service;const sub=document.createElement('small');sub.textContent=e.username||'Nessun nome utente';left.append(name,sub);if(e.favorite){const star=document.createElement('small');star.textContent='★ Preferito';left.append(star)}const arrow=document.createElement('span');arrow.className='chevron';arrow.textContent='›';btn.append(left,arrow);btn.addEventListener('click',()=>edit(e.id));root.append(btn)}const counts=new Map();for(const e of entries){if(e.password)counts.set(e.password,(counts.get(e.password)||0)+1)}const duplicateCount=[...counts.values()].filter(n=>n>1).reduce((sum,n)=>sum+n,0);$('audit').textContent=duplicateCount?`Attenzione: ${duplicateCount} credenziali usano password ripetute.`:'Nessuna password ripetuta rilevata nell’archivio.'}
 function edit(id=null){editing=id;const e=entries.find(x=>x.id===id)||{};$('editorTitle').textContent=id?'Modifica credenziale':'Nuova credenziale';for(const field of ['service','username','password','website','notes'])$(field).value=e[field]||'';$('password').type='password';$('showPassword').textContent='Mostra';$('category').value=e.category||'Personale';$('favorite').checked=!!e.favorite;$('delete').hidden=!id;updateStrength();screen('editor')}
-$('setupForm').addEventListener('submit',async e=>{e.preventDefault();if(saving)return;const a=$('newMaster').value,b=$('confirmMaster').value;if(a.length<12||a!==b){message('Usa almeno 12 caratteri e verifica la conferma.');return}try{const epoch=sessionEpoch;const nextSalt=random(16);const nextKey=await derive(a,nextSalt);if(epoch!==sessionEpoch)return;salt=nextSalt;key=nextKey;entries=[];await save(true);locked=false;$('newMaster').value=$('confirmMaster').value='';screen('vault');render();resetIdle()}catch{message('Impossibile creare l’archivio.')}});
+$('setupForm').addEventListener('submit',async e=>{e.preventDefault();if(saving||settingUp)return;settingUp=true;const a=$('newMaster').value,b=$('confirmMaster').value;if(a.length<12||a!==b){settingUp=false;message('Usa almeno 12 caratteri e verifica la conferma.');return}try{const epoch=sessionEpoch;const nextSalt=random(16);const nextKey=await derive(a,nextSalt);if(epoch!==sessionEpoch)return;salt=nextSalt;key=nextKey;entries=[];await save(true);locked=false;$('newMaster').value=$('confirmMaster').value='';screen('vault');render();resetIdle()}catch{message('Impossibile creare l’archivio.')}finally{settingUp=false}});
 $('unlockForm').addEventListener('submit',async e=>{e.preventDefault();if(unlocking||!locked)return;unlocking=true;const epoch=sessionEpoch;const password=$('master').value;try{const result=await openVault(localStorage.getItem(STORE),password);if(epoch!==sessionEpoch||!locked)return;entries=result.data;key=result.k;salt=result.s;locked=false;$('master').value='';screen('vault');render();resetIdle()}catch{if(epoch===sessionEpoch)message('Password errata o archivio danneggiato.')}finally{unlocking=false}});
-$('entryForm').addEventListener('submit',async e=>{e.preventDefault();if(locked||saving)return;const data={};for(const f of ['service','username','password','website','notes'])data[f]=$(f).value.trim();data.category=$('category').value;data.favorite=$('favorite').checked;if(!data.service||!data.password)return message('Inserisci servizio e password.');const old=entries.slice();if(editing){const idx=entries.findIndex(x=>x.id===editing);if(idx<0)return;entries[idx]={...entries[idx],...data}}else entries.push({id:crypto.randomUUID(),...data});try{await save();if(locked)return;clearEditor();screen('vault');render();resetIdle()}catch{if(!locked)entries=old;message('Salvataggio non riuscito.')}});
-$('delete').addEventListener('click',async()=>{if(locked||saving||!editing||!confirm('Eliminare definitivamente questa credenziale?'))return;const old=entries;entries=entries.filter(x=>x.id!==editing);try{await save();if(locked)return;screen('vault');render()}catch{if(!locked)entries=old;message('Eliminazione non riuscita.')}});
+$('entryForm').addEventListener('submit',async e=>{e.preventDefault();if(locked||saving||importing)return;const data={};for(const f of ['service','username','password','website','notes'])data[f]=$(f).value.trim();data.category=$('category').value;data.favorite=$('favorite').checked;if(!data.service||!data.password)return message('Inserisci servizio e password.');const old=entries.slice();if(editing){const idx=entries.findIndex(x=>x.id===editing);if(idx<0)return;entries[idx]={...entries[idx],...data}}else entries.push({id:crypto.randomUUID(),...data});try{await save();if(locked)return;clearEditor();screen('vault');render();resetIdle()}catch{if(!locked)entries=old;message('Salvataggio non riuscito.')}});
+$('delete').addEventListener('click',async()=>{if(locked||saving||importing||!editing||!confirm('Eliminare definitivamente questa credenziale?'))return;const old=entries;entries=entries.filter(x=>x.id!==editing);try{await save();if(locked)return;screen('vault');render()}catch{if(!locked)entries=old;message('Eliminazione non riuscita.')}});
 $('passwordLength').addEventListener('input',()=>{$('lengthLabel').textContent=$('passwordLength').value});
 $('generate').addEventListener('click',()=>{const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'+($('useSymbols').checked?'!@#$%^&*-_':'');let result='';const limit=Math.floor(256/alphabet.length)*alphabet.length;const length=Number($('passwordLength').value);while(result.length<length){for(const b of random(64)){if(b<limit&&result.length<length)result+=alphabet[b%alphabet.length]}}$('password').value=result;$('password').type='text';$('showPassword').textContent='Nascondi';updateStrength()});
 $('showPassword').addEventListener('click',()=>{const visible=$('password').type==='text';$('password').type=visible?'password':'text';$('showPassword').textContent=visible?'Mostra':'Nascondi'});
@@ -55,7 +55,7 @@ if(!window.isSecureContext||!crypto.subtle){document.body.textContent='Vault ric
 
 // Backup: esporta soltanto il blob già cifrato, mai le credenziali in chiaro.
 $('exportBackup').addEventListener('click',()=>{
- if(locked||saving)return message('Attendi il completamento del salvataggio.');const raw=localStorage.getItem(STORE);if(!raw)return message('Archivio non disponibile.');
+ if(locked||saving||importing)return message('Attendi il completamento del salvataggio.');const raw=localStorage.getItem(STORE);if(!raw)return message('Archivio non disponibile.');
  const blob=new Blob([raw],{type:'application/json'});const url=URL.createObjectURL(blob);
  const a=document.createElement('a');a.href=url;a.download='vault-backup-'+new Date().toISOString().slice(0,10)+'.json';
  document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
@@ -63,8 +63,8 @@ $('exportBackup').addEventListener('click',()=>{
 });
 $('importBackup').addEventListener('click',()=>{if(!locked)$('backupFile').click()});
 $('backupFile').addEventListener('change',async e=>{
- const file=e.target.files?.[0];e.target.value='';if(!file||locked||saving)return;const epoch=sessionEpoch;
- if(file.size>5_000_000)return message('Backup troppo grande (massimo 5 MB).');
+ const file=e.target.files?.[0];e.target.value='';if(!file||locked||saving||importing)return;importing=true;const epoch=sessionEpoch;
+ if(file.size>5_000_000){importing=false;return message('Backup troppo grande (massimo 5 MB).')}
  try{const raw=await file.text();validateBlob(JSON.parse(raw));
  const password=prompt('Password principale del backup da importare:');if(password===null)return;
  const restored=await openVault(raw,password);
@@ -75,7 +75,7 @@ $('backupFile').addEventListener('change',async e=>{
  if(locked||epoch!==sessionEpoch||saving)return;
  try{localStorage.setItem(STORE,raw)}catch(err){if(old!==null)localStorage.setItem(STORE,old);throw err}
  entries=restored.data;key=restored.k;salt=restored.s;render();resetIdle();message('Backup importato.');
- }catch{message('Importazione non riuscita: file o password non validi.')}
+ }catch{message('Importazione non riuscita: file o password non validi.')}finally{importing=false}
 });
 
 // v0.4: verifica non distruttiva. Non modifica localStorage, entries, key o salt.
