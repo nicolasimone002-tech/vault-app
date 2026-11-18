@@ -1,8 +1,8 @@
 'use strict';
-let vaultRegistration=null, pendingUpdate=false;
+
 const STORE='vault.pwa.v1';const $=id=>document.getElementById(id);const encoder=new TextEncoder();const decoder=new TextDecoder();let entries=[],key=null,salt=null,editing=null,locked=true,lockTimer=null,clipboardTimer=null,clipboardValue=null,sessionEpoch=0,saving=false,unlocking=false,settingUp=false,importing=false,verifying=false;
 const b64=bytes=>btoa(String.fromCharCode(...bytes));const un64=str=>Uint8Array.from(atob(str),c=>c.charCodeAt(0));const random=n=>crypto.getRandomValues(new Uint8Array(n));
-function screen(name){for(const id of ['setup','unlock','vault','editor','settings'])$(id).hidden=id!==name;$('lock').hidden=name==='setup'||name==='unlock';$('openSettings').hidden=locked||name==='setup'||name==='unlock';$('openSettings').setAttribute('aria-expanded',String(name==='settings'));$('updateCheck').hidden=!locked;refreshUpdateNotice()}
+function screen(name){for(const id of ['setup','unlock','vault','editor','settings'])$(id).hidden=id!==name;$('lock').hidden=name==='setup'||name==='unlock';$('openSettings').hidden=locked||name==='setup'||name==='unlock';$('openSettings').setAttribute('aria-expanded',String(name==='settings'));}
 function message(s){$('status').textContent=s;setTimeout(()=>{if($('status').textContent===s)$('status').textContent=''},4500)}
 async function derive(password,s){const base=await crypto.subtle.importKey('raw',encoder.encode(password),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt:s,iterations:600000,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
 async function seal(data,k,s){const iv=random(12);const encrypted=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:encoder.encode('Vault-PWA-v1')},k,encoder.encode(JSON.stringify(data)));return JSON.stringify({version:1,kdf:'PBKDF2-SHA256',iterations:600000,salt:b64(s),iv:b64(iv),ciphertext:b64(new Uint8Array(encrypted))})}
@@ -147,66 +147,9 @@ $('password').addEventListener('input',()=>{updateStrength();updateSpaceInfo()})
 // Non sovrascrive gli appunti se l'utente ha copiato altro nel frattempo.
 $('copyPassword').addEventListener('click',async()=>{if(locked)return;const value=$('password').value;const epoch=sessionEpoch;if(!value)return message('Nessuna password da copiare.');if(!navigator.clipboard?.writeText)return message('Copia non disponibile su questo dispositivo.');try{await navigator.clipboard.writeText(value);if(locked||epoch!==sessionEpoch)return;clipboardValue=value;clearTimeout(clipboardTimer);clipboardTimer=setTimeout(async()=>{const expected=clipboardValue;clipboardValue=null;if(!expected)return;try{if(navigator.clipboard.readText&&await navigator.clipboard.readText()===expected)await navigator.clipboard.writeText('')}catch{/* iOS può impedire la lettura degli appunti: nessuna garanzia di cancellazione */}},20000);message('Copiata. La pulizia automatica degli appunti non è garantita su iPhone.')}catch{message('Impossibile copiare: verifica i permessi degli appunti.')}});
 
-// The update prompt is shown only while the vault is locked. The browser may
-// still activate a waiting worker on a future visit when all clients close.
-function refreshUpdateNotice(){
- const notice=$('updateNotice');if(!notice)return;
- notice.hidden=!pendingUpdate||!locked;
-}
+// Keep offline support. No manual update control or forced reload while unlocked.
 async function initializeUpdates(){
  try{
-  const registration=await navigator.serviceWorker.register('./sw.js');
-  vaultRegistration=registration;
-  const check=()=>{pendingUpdate=!!(registration.waiting&&navigator.serviceWorker.controller);refreshUpdateNotice()};
-  check();
-  registration.addEventListener('updatefound',()=>{
-   const worker=registration.installing;
-   if(worker)worker.addEventListener('statechange',check);
-  });
-  navigator.serviceWorker.addEventListener('controllerchange',()=>{
-   // Never reload a session containing decrypted credentials.
-   if(!locked){pendingUpdate=false;refreshUpdateNotice();return}
-   location.reload();
-  });
-  // Check at startup and on return to foreground; never auto-activate a waiting worker.
-  registration.update().then(check).catch(()=>{});
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)registration.update().then(check).catch(()=>{})});
- }catch{ /* Vault remains usable offline with its existing code. */ }
+  await navigator.serviceWorker.register('./sw.js');
+ }catch{ /* Offline support may be unavailable; vault data is untouched. */ }
 }
-$('applyUpdate').addEventListener('click',()=>{
- if(!locked||saving||importing||verifying||settingUp||unlocking)return;
- const worker=vaultRegistration&&vaultRegistration.waiting;
- if(!worker){pendingUpdate=false;refreshUpdateNotice();return}
- worker.postMessage({type:'VAULT_APPLY_UPDATE'});
- $('applyUpdate').disabled=true;
- $('applyUpdate').textContent='Aggiornamento in corso…';
-});
-
-// User-initiated update check, available only when locked. No storage changes.
-$('checkUpdate').addEventListener('click',async()=>{
- if(!locked)return;
- if(!vaultRegistration)return message('Aggiornamenti non disponibili in questo browser.');
- try{
-  // Network probe bypasses the cache-first worker: do not confuse an update
-  // registration error with a general Internet connectivity problem.
-  const url=new URL('./sw.js',location.href);
-  url.searchParams.set('vault_check',Date.now().toString());
-  const response=await fetch(url.href,{cache:'no-store'});
-  if(!response.ok)throw new Error('HTTP '+response.status);
-  const script=await response.text();
-  if(!script.includes('vault-pwa-'))throw new Error('Risposta service worker inattesa');
-  let updateError=null;
-  try{await vaultRegistration.update()}catch(error){updateError=error}
-  pendingUpdate=!!(vaultRegistration.waiting&&navigator.serviceWorker.controller);
-  refreshUpdateNotice();
-  if(pendingUpdate)message('Aggiornamento disponibile. Blocca Vault per applicarlo.');
-  else if(updateError)message('Server raggiungibile, ma iOS non completa il controllo del service worker. Riprova più tardi.');
-  else message('Controllo completato: nessun aggiornamento in attesa.');
- }catch(error){message('Impossibile raggiungere il file aggiornamenti: '+(error?.message||'errore sconosciuto'));}
-});
-
-// Settings shortcut: lock before checking for updates to avoid disrupting an unlocked session.
-$('settingsCheckUpdate').addEventListener('click',()=>{
- if(!locked)lock();
- if(locked)$('checkUpdate').click();
-});

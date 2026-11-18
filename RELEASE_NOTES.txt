@@ -1,6 +1,6 @@
-Vault Midnight Dark - correzione diagnostica aggiornamenti
-- Verifica raggiungibilita sw.js con fetch no-store
-- Distinzione tra errore rete e registrazione service worker
-- Nuova versione cache
-- URL icona versionato per nuove installazioni (iOS puo mantenere la vecchia icona Home)
-- Archivio e backup invariati
+Vault Midnight Dark · 1.1
+- Mostra soltanto la versione nelle Impostazioni.
+- Rimossi i pulsanti e gli avvisi di controllo aggiornamenti.
+- Mantiene service worker per utilizzo offline.
+- Archivio, cifratura e backup invariati.
+- Non eliminare i dati locali o la PWA esistente.
