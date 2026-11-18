@@ -81,3 +81,7 @@ Esportare e verificare prima un backup, poi caricare i file estratti alla radice
 - Creazione iniziale ricontrolla che non esista già un archivio.
 - Cache PWA aggiornata.
 - Formato cifrato invariato. Resta il rischio di compromissione degli aggiornamenti su GitHub Pages; solo dati di prova.
+
+
+## v0.9.1 — inserimento esplicito di spazi ai bordi
+Aggiunti due pulsanti per inserire spazi iniziali e finali nel campo password, con contatore degli spazi visibile. Il codice di cifratura, il formato dei backup e la chiave di archiviazione restano invariati. Questa modifica aggira eventuali problemi di digitazione sul dispositivo ma non dimostra la causa originaria. Testare solo con credenziali fittizie.

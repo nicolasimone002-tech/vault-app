@@ -4,3 +4,5 @@
 
 .filters{display:flex;gap:10px;align-items:center;margin-bottom:16px}.filters select{flex:1;min-width:0}.filters .check{flex:1}.check{display:flex;flex-direction:row;align-items:center;gap:9px;font-size:13px}.check input{width:18px;height:18px;flex:none;accent-color:#7895ff}.generator{display:grid;gap:12px;padding:14px;border:1px solid #30394e;border-radius:14px}.generator input[type=range]{padding:0;accent-color:#7895ff}.generator output{float:right}.audit{margin-top:18px;color:#c3cee6;font-size:13px;line-height:1.5}select{background:#111827;border:1px solid #3b4760;border-radius:12px;padding:13px;color:white;font:inherit;font-size:15px}
 .strength{display:block;color:#b9c8e9;font-size:12px;font-weight:400}.inputrow{flex-wrap:wrap}.inputrow input{flex:1 1 140px}.inputrow button{padding:12px}
+
+.space-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.space-tools button{font-size:.82rem;padding:8px 10px}
