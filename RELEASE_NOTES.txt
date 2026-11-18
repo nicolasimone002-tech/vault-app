@@ -1,0 +1,7 @@
+Vault v0.13.1 - manutenzione minima sulla base del pacchetto v0.13 definitivo fornito.
+- Rimosso secondo elemento duplicato updateNotice/applyUpdate in index.html.
+- Rimosso secondo listener duplicato VAULT_APPLY_UPDATE in sw.js.
+- Aggiornato nome cache del service worker per distribuire i file corretti.
+- Titolo aggiornato a v0.13.1.
+- app.js, style.css, manifest e icone invariati.
+- Non e un audit di sicurezza; usare credenziali fittizie.
