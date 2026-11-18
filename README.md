@@ -42,3 +42,15 @@ Prima dell'aggiornamento salvare un backup. Sostituire tutti i file nella radice
 - Nessuna modifica al formato di cifratura o alla chiave localStorage `vault.pwa.v1`: aggiornamento compatibile con v0.4. Service worker con cache v5.
 - Non è stato eseguito un audit indipendente; non usare password reali. Un host web compromesso o una modifica malevola del codice possono sottrarre i dati al prossimo sblocco.
 - Test consigliati: blocca durante modifica e verifica che non restino dati nei campi; copia password fittizia e verifica avviso; verifica backup; ricarica e controlla credenziali fittizie.
+
+
+## v0.6 — mitigazione delle operazioni asincrone
+- Epoch di sessione: i salvataggi terminati dopo un blocco non possono più scrivere in localStorage.
+- Snapshot immutabile per la cifratura; impediti salvataggi concorrenti.
+- Sblocco, importazione, verifica e copia controllano se la sessione è cambiata durante le operazioni asincrone.
+- Cache service worker aggiornata alla versione v6.
+- Il formato cifrato v1 e la chiave localStorage `vault.pwa.v1` non cambiano.
+- Limitazione: controlli statici effettuati; non è stato eseguito un test iOS o un audit indipendente. Non usare credenziali reali.
+
+### Aggiornamento sicuro
+Esportare e verificare prima un backup, poi caricare i file estratti alla radice di GitHub. Non cancellare l'app né i dati Safari. Dopo la pubblicazione chiudere e riaprire la PWA; può essere necessario un secondo avvio per aggiornare la cache. Verificare l'accesso e le credenziali fittizie.
