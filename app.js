@@ -1,7 +1,8 @@
 'use strict';
+let vaultRegistration=null, pendingUpdate=false;
 const STORE='vault.pwa.v1';const $=id=>document.getElementById(id);const encoder=new TextEncoder();const decoder=new TextDecoder();let entries=[],key=null,salt=null,editing=null,locked=true,lockTimer=null,clipboardTimer=null,clipboardValue=null,sessionEpoch=0,saving=false,unlocking=false,settingUp=false,importing=false,verifying=false;
 const b64=bytes=>btoa(String.fromCharCode(...bytes));const un64=str=>Uint8Array.from(atob(str),c=>c.charCodeAt(0));const random=n=>crypto.getRandomValues(new Uint8Array(n));
-function screen(name){for(const id of ['setup','unlock','vault','editor'])$(id).hidden=id!==name;$('lock').hidden=name==='setup'||name==='unlock'}
+function screen(name){for(const id of ['setup','unlock','vault','editor'])$(id).hidden=id!==name;$('lock').hidden=name==='setup'||name==='unlock';refreshUpdateNotice()}
 function message(s){$('status').textContent=s;setTimeout(()=>{if($('status').textContent===s)$('status').textContent=''},4500)}
 async function derive(password,s){const base=await crypto.subtle.importKey('raw',encoder.encode(password),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt:s,iterations:600000,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
 async function seal(data,k,s){const iv=random(12);const encrypted=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:encoder.encode('Vault-PWA-v1')},k,encoder.encode(JSON.stringify(data)));return JSON.stringify({version:1,kdf:'PBKDF2-SHA256',iterations:600000,salt:b64(s),iv:b64(iv),ciphertext:b64(new Uint8Array(encrypted))})}
@@ -51,7 +52,7 @@ $('passwordLength').addEventListener('input',()=>{$('lengthLabel').textContent=$
 $('generate').addEventListener('click',()=>{const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'+($('useSymbols').checked?'!@#$%^&*-_':'');let result='';const limit=Math.floor(256/alphabet.length)*alphabet.length;const length=Number($('passwordLength').value);while(result.length<length){for(const b of random(64)){if(b<limit&&result.length<length)result+=alphabet[b%alphabet.length]}}$('password').value=result;$('password').type='text';$('showPassword').textContent='Nascondi';updateStrength()});
 $('showPassword').addEventListener('click',()=>{const visible=$('password').type==='text';$('password').type=visible?'password':'text';$('showPassword').textContent=visible?'Mostra':'Nascondi'});
 $('add').addEventListener('click',()=>edit());$('cancel').addEventListener('click',()=>{clearEditor();screen('vault');render()});$('lock').addEventListener('click',lock);$('search').addEventListener('input',render);$('categoryFilter').addEventListener('change',render);$('favoritesOnly').addEventListener('change',render);document.addEventListener('pointerdown',resetIdle);document.addEventListener('keydown',resetIdle);document.addEventListener('visibilitychange',()=>{if(document.hidden&&!locked)lock()});window.addEventListener('pagehide',()=>{if(!locked)lock()});
-if(!window.isSecureContext||!crypto.subtle){document.body.textContent='Vault richiede HTTPS o localhost per funzionare in sicurezza.'}else{screen(localStorage.getItem(STORE)?'unlock':'setup');if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{})}
+if(!window.isSecureContext||!crypto.subtle){document.body.textContent='Vault richiede HTTPS o localhost per funzionare in sicurezza.'}else{screen(localStorage.getItem(STORE)?'unlock':'setup');if('serviceWorker'in navigator)initializeUpdates()}
 
 // Backup: esporta soltanto il blob già cifrato, mai le credenziali in chiaro.
 $('exportBackup').addEventListener('click',()=>{
@@ -122,3 +123,37 @@ $('password').addEventListener('input',()=>{updateStrength();updateSpaceInfo()})
 
 // Non sovrascrive gli appunti se l'utente ha copiato altro nel frattempo.
 $('copyPassword').addEventListener('click',async()=>{if(locked)return;const value=$('password').value;const epoch=sessionEpoch;if(!value)return message('Nessuna password da copiare.');if(!navigator.clipboard?.writeText)return message('Copia non disponibile su questo dispositivo.');try{await navigator.clipboard.writeText(value);if(locked||epoch!==sessionEpoch)return;clipboardValue=value;clearTimeout(clipboardTimer);clipboardTimer=setTimeout(async()=>{const expected=clipboardValue;clipboardValue=null;if(!expected)return;try{if(navigator.clipboard.readText&&await navigator.clipboard.readText()===expected)await navigator.clipboard.writeText('')}catch{/* iOS può impedire la lettura degli appunti: nessuna garanzia di cancellazione */}},20000);message('Copiata. La pulizia automatica degli appunti non è garantita su iPhone.')}catch{message('Impossibile copiare: verifica i permessi degli appunti.')}});
+
+// The update prompt is shown only while the vault is locked. The browser may
+// still activate a waiting worker on a future visit when all clients close.
+function refreshUpdateNotice(){
+ const notice=$('updateNotice');if(!notice)return;
+ notice.hidden=!pendingUpdate||!locked;
+}
+async function initializeUpdates(){
+ try{
+  const registration=await navigator.serviceWorker.register('./sw.js');
+  vaultRegistration=registration;
+  const check=()=>{pendingUpdate=!!(registration.waiting&&navigator.serviceWorker.controller);refreshUpdateNotice()};
+  check();
+  registration.addEventListener('updatefound',()=>{
+   const worker=registration.installing;
+   if(worker)worker.addEventListener('statechange',check);
+  });
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+   // Never reload a session containing decrypted credentials.
+   if(!locked){pendingUpdate=false;refreshUpdateNotice();return}
+   location.reload();
+  });
+  // Check for updates on startup only. Never activate a worker silently.
+  registration.update().catch(()=>{});
+ }catch{ /* Vault remains usable offline with its existing code. */ }
+}
+$('applyUpdate').addEventListener('click',()=>{
+ if(!locked||saving||importing||verifying||settingUp||unlocking)return;
+ const worker=vaultRegistration&&vaultRegistration.waiting;
+ if(!worker){pendingUpdate=false;refreshUpdateNotice();return}
+ worker.postMessage({type:'VAULT_APPLY_UPDATE'});
+ $('applyUpdate').disabled=true;
+ $('applyUpdate').textContent='Aggiornamento in corso…';
+});
