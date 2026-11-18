@@ -34,3 +34,11 @@ Aggiunti categorie, preferiti, filtri, controllo locale password duplicate e gen
 Nella schermata dell'archivio sbloccato premere **Verifica backup (senza importare)**, scegliere il file JSON esportato e digitare la password principale del backup. La verifica prova a decifrare e convalidare la struttura delle credenziali, mostrando solo il numero di elementi. Non scrive in localStorage e non sostituisce l'archivio corrente. Il tasto **Importa backup** continua invece a sostituire l'archivio dopo conferma esplicita: non usarlo per il test.
 
 Prima dell'aggiornamento salvare un backup. Sostituire tutti i file nella radice del repository e attendere l'aggiornamento del service worker (potrebbero servire due riaperture). La verifica riuscita non costituisce un audit di sicurezza e non garantisce che il file rimanga disponibile in futuro. Usare solo credenziali fittizie.
+
+
+## v0.5 — protezione della sessione e indicatore password
+- Alla chiusura/blocco vengono svuotati riferimenti JavaScript a credenziali e chiave, campi di input, elenco e messaggi visibili. **Non** garantisce l'azzeramento fisico della memoria JS o delle copie interne del browser.
+- Nel modulo credenziale, indicatore euristico della robustezza e pulsante Copia. Dopo 20 secondi tenta di svuotare gli appunti **solo se** sono ancora uguali alla password copiata; su iOS la lettura degli appunti può essere negata e la cancellazione non è garantita. Non usa un timer in background affidabile.
+- Nessuna modifica al formato di cifratura o alla chiave localStorage `vault.pwa.v1`: aggiornamento compatibile con v0.4. Service worker con cache v5.
+- Non è stato eseguito un audit indipendente; non usare password reali. Un host web compromesso o una modifica malevola del codice possono sottrarre i dati al prossimo sblocco.
+- Test consigliati: blocca durante modifica e verifica che non restino dati nei campi; copia password fittizia e verifica avviso; verifica backup; ricarica e controlla credenziali fittizie.
