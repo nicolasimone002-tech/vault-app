@@ -28,3 +28,9 @@ Aggiunti categorie, preferiti, filtri, controllo locale password duplicate e gen
 **Prima dell'aggiornamento:** esportare un backup cifrato e verificarne la presenza. Sostituire i file alla radice del repository GitHub (non caricare la cartella esterna). Su iPhone chiudere e riaprire la PWA dopo il deploy; il service worker potrebbe richiedere un secondo avvio per attivare la nuova versione. Non cancellare i dati del sito e non disinstallare l'app.
 
 **Limiti:** non è stata effettuata una revisione crittografica indipendente, non usare password reali. I dati possono andare persi se Safari elimina lo storage del sito. Il controllo duplicati avviene solo dopo lo sblocco, in memoria.
+
+
+## Aggiornamento v0.4 — verifica backup non distruttiva
+Nella schermata dell'archivio sbloccato premere **Verifica backup (senza importare)**, scegliere il file JSON esportato e digitare la password principale del backup. La verifica prova a decifrare e convalidare la struttura delle credenziali, mostrando solo il numero di elementi. Non scrive in localStorage e non sostituisce l'archivio corrente. Il tasto **Importa backup** continua invece a sostituire l'archivio dopo conferma esplicita: non usarlo per il test.
+
+Prima dell'aggiornamento salvare un backup. Sostituire tutti i file nella radice del repository e attendere l'aggiornamento del service worker (potrebbero servire due riaperture). La verifica riuscita non costituisce un audit di sicurezza e non garantisce che il file rimanga disponibile in futuro. Usare solo credenziali fittizie.

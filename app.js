@@ -43,3 +43,22 @@ $('backupFile').addEventListener('change',async e=>{
  entries=restored.data;key=restored.k;salt=restored.s;render();resetIdle();message('Backup importato.');
  }catch{message('Importazione non riuscita: file o password non validi.')}
 });
+
+// v0.4: verifica non distruttiva. Non modifica localStorage, entries, key o salt.
+$('verifyBackup').addEventListener('click',()=>{if(!locked)$('verifyFile').click()});
+$('verifyFile').addEventListener('change',async e=>{
+ const file=e.target.files?.[0];e.target.value='';if(!file)return;
+ const result=$('verifyResult');result.hidden=false;result.textContent='Verifica in corso…';
+ if(file.size>5_000_000){result.textContent='Backup troppo grande (massimo 5 MB). Nessun dato modificato.';return}
+ try{
+  const raw=await file.text();
+  const blob=JSON.parse(raw);
+  if(blob.version!==1||blob.kdf!=='PBKDF2-SHA256'||blob.iterations!==600000||!['salt','iv','ciphertext'].every(k=>typeof blob[k]==='string'))throw Error('Formato non riconosciuto');
+  const password=prompt('Inserisci la password principale del BACKUP per verificarlo (nessun dato verrà importato):');
+  if(password===null){result.textContent='Verifica annullata. Nessun dato modificato.';return}
+  const verified=await openVault(raw,password);
+  if(!verified.data.every(x=>x&&typeof x==='object'&&typeof x.service==='string'&&typeof x.password==='string'))throw Error('Dati non validi');
+  const n=verified.data.length;
+  result.textContent=`Backup verificato: decifratura riuscita, ${n} credenzial${n===1?'e':'i'} presenti. Archivio attuale invariato.`;
+ }catch{result.textContent='Verifica fallita: password errata, backup danneggiato o formato non valido. Archivio attuale invariato.'}
+});
