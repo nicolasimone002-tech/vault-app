@@ -1,4 +1,6 @@
-Vault Midnight Dark - aggiornamento grafico finale
-Icona V blu acciaio; menu Impostazioni con backup compatti, controllo aggiornamenti e versione installata.
-Il controllo da Impostazioni blocca prima la sessione. Cifratura e formato archivio non modificati.
-Test iPhone non eseguito. Usare solo credenziali fittizie.
+Vault Midnight Dark - correzione diagnostica aggiornamenti
+- Verifica raggiungibilita sw.js con fetch no-store
+- Distinzione tra errore rete e registrazione service worker
+- Nuova versione cache
+- URL icona versionato per nuove installazioni (iOS puo mantenere la vecchia icona Home)
+- Archivio e backup invariati

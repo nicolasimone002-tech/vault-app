@@ -186,8 +186,23 @@ $('applyUpdate').addEventListener('click',()=>{
 $('checkUpdate').addEventListener('click',async()=>{
  if(!locked)return;
  if(!vaultRegistration)return message('Aggiornamenti non disponibili in questo browser.');
- try{await vaultRegistration.update();pendingUpdate=!!(vaultRegistration.waiting&&navigator.serviceWorker.controller);refreshUpdateNotice();message(pendingUpdate?'Aggiornamento disponibile.':'Nessun aggiornamento pronto.')}
- catch{message('Controllo non riuscito: verifica la connessione.')}
+ try{
+  // Network probe bypasses the cache-first worker: do not confuse an update
+  // registration error with a general Internet connectivity problem.
+  const url=new URL('./sw.js',location.href);
+  url.searchParams.set('vault_check',Date.now().toString());
+  const response=await fetch(url.href,{cache:'no-store'});
+  if(!response.ok)throw new Error('HTTP '+response.status);
+  const script=await response.text();
+  if(!script.includes('vault-pwa-'))throw new Error('Risposta service worker inattesa');
+  let updateError=null;
+  try{await vaultRegistration.update()}catch(error){updateError=error}
+  pendingUpdate=!!(vaultRegistration.waiting&&navigator.serviceWorker.controller);
+  refreshUpdateNotice();
+  if(pendingUpdate)message('Aggiornamento disponibile. Blocca Vault per applicarlo.');
+  else if(updateError)message('Server raggiungibile, ma iOS non completa il controllo del service worker. Riprova più tardi.');
+  else message('Controllo completato: nessun aggiornamento in attesa.');
+ }catch(error){message('Impossibile raggiungere il file aggiornamenti: '+(error?.message||'errore sconosciuto'));}
 });
 
 // Settings shortcut: lock before checking for updates to avoid disrupting an unlocked session.
